@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Next.js build & cache
+.next/
+.next/cache/
+out/
+build/
+# (opsional kalau ada tool lain)
+dist/
+
+# Debug & logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Caches umum
+.swc/
+.cache/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
