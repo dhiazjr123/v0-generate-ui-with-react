@@ -1,26 +1,39 @@
-"use client"
+// components/sidebar.tsx
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Bot, BarChart3, FileText, Send, Upload, Filter } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Bot, BarChart3, FileText, Send, Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
+import FileUploadButton from "@/components/file-upload-button";
+import { useDocuments } from "@/components/documents-context";
 
-type ActiveSection = "assistant" | "overview" | "documents"
+type ActiveSection = "assistant" | "overview" | "documents";
 
 export function Sidebar() {
-  const [activeSection, setActiveSection] = useState<ActiveSection>("assistant")
-  const [prompt, setPrompt] = useState("")
+  const [activeSection, setActiveSection] = useState<ActiveSection>("assistant");
+  const [prompt, setPrompt] = useState("");
+  const { addFromFiles, addQuery } = useDocuments();
 
   const menuItems = [
     { id: "assistant" as const, label: "AI Assistant", icon: Bot },
     { id: "overview" as const, label: "Overview", icon: BarChart3 },
     { id: "documents" as const, label: "Documents", icon: FileText },
-  ]
+  ];
+
+  const handleSend = () => {
+    const text = prompt.trim();
+    if (!text) return;
+    addQuery(text);
+    setPrompt("");
+    // (opsional) pindah ke tab Documents:
+    // setActiveSection("documents");
+  };
 
   return (
-    <aside className="w-80 border-r border-border bg-sidebar h-[calc(100vh-4rem)]">
+    <aside className="w-80 border-r border-border bg-sidebar/60 glass soft-shadow h-[calc(100vh-4rem)]">
       <div className="p-4">
         <nav className="space-y-2">
           {menuItems.map((item) => (
@@ -42,7 +55,7 @@ export function Sidebar() {
 
       <div className="px-4 pb-4">
         {activeSection === "assistant" && (
-          <Card className="p-4 space-y-4">
+          <Card className="p-4 space-y-4 bg-card/70 glass">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Ask AI Assistant</label>
               <Textarea
@@ -52,7 +65,7 @@ export function Sidebar() {
                 className="min-h-[100px] resize-none"
               />
             </div>
-            <Button className="w-full gap-2">
+            <Button onClick={handleSend} className="w-full gap-2 ring-ambient">
               <Send className="h-4 w-4" />
               Send
             </Button>
@@ -61,11 +74,17 @@ export function Sidebar() {
 
         {activeSection === "documents" && (
           <div className="space-y-4">
-            <Button className="w-full gap-2 bg-transparent" variant="outline">
-              <Upload className="h-4 w-4" />
-              Upload Document
-            </Button>
-            <Button className="w-full gap-2 bg-transparent" variant="outline">
+            <FileUploadButton
+              onSelectFiles={addFromFiles}
+              label="Upload Document"
+              variant="default"
+              className="w-full justify-start btn-gradient border-0 ring-ambient"
+            />
+            {/* Samakan style dengan Upload */}
+            <Button
+              variant="default"
+              className="w-full justify-start gap-2 btn-gradient border-0 ring-ambient"
+            >
               <Filter className="h-4 w-4" />
               Filter Documents
             </Button>
@@ -73,5 +92,5 @@ export function Sidebar() {
         )}
       </div>
     </aside>
-  )
+  );
 }

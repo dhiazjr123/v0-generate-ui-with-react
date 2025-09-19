@@ -1,67 +1,54 @@
-"use client"
+// components/main-content.tsx
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { FileText, MessageSquare, Clock, Download, Trash2, TrendingUp } from "lucide-react"
+import { useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileText, MessageSquare, Clock, Download, Trash2, TrendingUp } from "lucide-react";
+import { useDocuments } from "@/components/documents-context";
+
+function timeAgo(ts: number) {
+  const diff = Date.now() - ts;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} minute${m > 1 ? "s" : ""} ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d > 1 ? "s" : ""} ago`;
+}
 
 export function MainContent() {
-  const summaryStats = [
-    { label: "Total Documents", value: "0", icon: FileText },
-    { label: "Documents Generated", value: "0", icon: TrendingUp },
-    { label: "Total Queries", value: "0", icon: MessageSquare },
-  ]
+  const { documents, removeDocument, recentQueries } = useDocuments();
 
-  const recentQueries = [
-    { query: "Summarize Q3 financial reports", time: "2 minutes ago" },
-    { query: "Compare marketing strategies across regions", time: "15 minutes ago" },
-    { query: "Extract key metrics from sales documents", time: "1 hour ago" },
-  ]
+  const summaryStats = useMemo(() => {
+    const total = documents.length.toString();
+    const generated = documents.filter((d) => d.status === "Processed").length.toString();
+    return [
+      { label: "Total Documents", value: total, icon: FileText },
+      { label: "Documents Generated", value: generated, icon: TrendingUp },
+      { label: "Total Queries", value: recentQueries.length.toString(), icon: MessageSquare },
+    ];
+  }, [documents, recentQueries]);
 
-  const documents = [
-    {
-      name: "Q3_Financial_Report.pdf",
-      type: "PDF",
-      size: "2.4 MB",
-      uploadDate: "2024-12-09",
-      status: "Processed",
-    },
-    {
-      name: "Marketing_Strategy_2024.docx",
-      type: "DOCX",
-      size: "1.8 MB",
-      uploadDate: "2024-12-08",
-      status: "Processing",
-    },
-    {
-      name: "Sales_Analysis_Nov.xlsx",
-      type: "XLSX",
-      size: "3.2 MB",
-      uploadDate: "2024-12-07",
-      status: "Processed",
-    },
-    {
-      name: "Sales_Analysis_Nov.xlsx",
-      type: "XLSX",
-      size: "3.2 MB",
-      uploadDate: "2024-12-07",
-      status: "Processed",
-    },
-    {
-      name: "Marketing_Strategy_2024.docx",
-      type: "DOCX",
-      size: "1.8 MB",
-      uploadDate: "2024-12-08",
-      status: "Processing",
-    },
-  ]
+  const downloadFile = (file?: File) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <main className="flex-1 p-6 space-y-6 overflow-auto">
-      {/* Summary Section */}
+      {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {summaryStats.map((stat, index) => (
-          <Card key={index} className="bg-card/50 backdrop-blur-sm">
+          <Card key={index} className="bg-card/70 glass soft-shadow hover-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
               <stat.icon className="h-4 w-4 text-muted-foreground" />
@@ -73,8 +60,8 @@ export function MainContent() {
         ))}
       </div>
 
-      {/* Recent Queries Section */}
-      <Card className="bg-card/50 backdrop-blur-sm">
+      {/* Recent Queries */}
+      <Card className="bg-card/70 glass soft-shadow hover-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
@@ -83,23 +70,29 @@ export function MainContent() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {recentQueries.map((query, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{query.query}</p>
-                  <p className="text-xs text-muted-foreground">{query.time}</p>
+            {recentQueries.length > 0 ? (
+              recentQueries.map((q) => (
+                <div key={q.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{q.text}</p>
+                    <p className="text-xs text-muted-foreground">{timeAgo(q.at)}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="ring-ambient">
+                    View
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm">
-                  View
-                </Button>
+              ))
+            ) : (
+              <div className="p-3 rounded-lg bg-muted/20 text-sm text-muted-foreground">
+                Belum ada query. Coba ketik di AI Assistant lalu klik <b>Send</b>.
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Documents Table */}
-      <Card className="bg-card/50 backdrop-blur-sm">
+      <Card className="bg-card/70 glass soft-shadow hover-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -107,7 +100,7 @@ export function MainContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto table-row-hover">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
@@ -120,38 +113,46 @@ export function MainContent() {
                 </tr>
               </thead>
               <tbody>
-                {documents.map((doc, index) => (
-                  <tr key={index} className="border-b border-border/50">
-                    <td className="py-3 px-2 text-sm text-foreground">{doc.name}</td>
-                    <td className="py-3 px-2">
-                      <Badge variant="outline" className="text-xs">
-                        {doc.type}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-2 text-sm text-muted-foreground">{doc.size}</td>
-                    <td className="py-3 px-2 text-sm text-muted-foreground">{doc.uploadDate}</td>
-                    <td className="py-3 px-2">
-                      <Badge variant={doc.status === "Processed" ? "default" : "secondary"} className="text-xs">
-                        {doc.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {documents.length > 0 ? (
+                  documents.map((doc) => (
+                    <tr key={doc.id} className="border-b border-border/50">
+                      <td className="py-3 px-2 text-sm text-foreground">{doc.name}</td>
+                      <td className="py-3 px-2">
+                        <Badge variant="outline" className="text-xs">{doc.type}</Badge>
+                      </td>
+                      <td className="py-3 px-2 text-sm text-muted-foreground">{doc.size}</td>
+                      <td className="py-3 px-2 text-sm text-muted-foreground">{doc.uploadDate}</td>
+                      <td className="py-3 px-2">
+                        <Badge variant={doc.status === "Processed" ? "default" : "secondary"} className="text-xs">
+                          {doc.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-2">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="ring-ambient"
+                            onClick={() => downloadFile(doc.file)} disabled={!doc.file}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="ring-ambient"
+                            onClick={() => removeDocument(doc.id)} aria-label={`Delete ${doc.name}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                      Belum ada dokumen. Klik <b>Upload Document</b> di sidebar.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }
