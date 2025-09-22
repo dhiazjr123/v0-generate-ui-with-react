@@ -1,0 +1,32 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+model Document {
+  id        String   @id @default(cuid())
+  name      String
+  mime      String
+  size      Int
+  path      String
+  status    String   @default("Processed")
+  createdAt DateTime @default(now())
+  chunks    Chunk[]
+}
+model Chunk {
+  id         String   @id @default(cuid())
+  documentId String
+  index      Int
+  content    String
+  embedding  Json
+  Document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+model Query {
+  id        String   @id @default(cuid())
+  text      String
+  answer    String?
+  createdAt DateTime @default(now())
+}

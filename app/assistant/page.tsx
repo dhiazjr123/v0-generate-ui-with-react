@@ -1,19 +1,19 @@
-// app/page.tsx
+// app/assistant/page.tsx
 "use client";
 
 import { Header } from "@/components/header";
-import Sidebar from "@/components/sidebar";           // ⬅️ default import (tanpa kurung)
-import { MainContent } from "@/components/main-content";
+import Sidebar from "@/components/sidebar";           // ⬅️ default import
+import AssistantWorkspace from "@/components/assistant-workspace";
 import { DocumentsProvider } from "@/components/documents-context";
 
-export default function HomePage() {
+export default function AssistantPage() {
   return (
     <DocumentsProvider>
       <div className="min-h-screen page-gradient">
         <Header />
         <div className="flex">
           <Sidebar />
-          <MainContent />
+          <AssistantWorkspace />
         </div>
       </div>
     </DocumentsProvider>
