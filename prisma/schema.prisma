@@ -1,32 +1,35 @@
 // prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL") // pastikan .env berisi URL ini
 }
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  documents Document[]
+}
+
 model Document {
-  id        String   @id @default(cuid())
-  name      String
-  mime      String
-  size      Int
-  path      String
-  status    String   @default("Processed")
-  createdAt DateTime @default(now())
-  chunks    Chunk[]
-}
-model Chunk {
   id         String   @id @default(cuid())
-  documentId String
-  index      Int
-  content    String
-  embedding  Json
-  Document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-}
-model Query {
-  id        String   @id @default(cuid())
-  text      String
-  answer    String?
-  createdAt DateTime @default(now())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  name       String
+  type       String
+  size       Int
+  status     String   @default("Processed")
+  uploadedAt DateTime @default(now())
+
+  // kunci di storage (Supabase/S3, dll)
+  storageKey String
+  publicUrl  String
+
+  @@index([userId, uploadedAt])
 }
