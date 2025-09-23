@@ -1,4 +1,3 @@
-// components/assistant-workspace.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,148 +6,128 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Bot, User, Play, FileText, Download, Copy, Check, ChevronDown, ChevronRight,
+  Send, Bot, User, Play, FileText, Download, Copy, Check, ChevronDown, ChevronRight
 } from "lucide-react";
 import { useDocuments } from "@/components/documents-context";
 import FileUploadButton from "@/components/file-upload-button";
 
-/* ================= Types ================= */
-
+/* ========= Types ========= */
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type ParsedBlock = { id: string; label: string; content: string };
 
-/* ================= Small utils ================= */
+/* ========= Utils / mocks (ganti ke API mu nanti) ========= */
+const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-function wait(ms: number) { return new Promise((res) => setTimeout(res, ms)); }
-
-/** Mock parser → ganti ini dgn API kamu */
 async function mockParse(file: File): Promise<ParsedBlock[]> {
-  await wait(700);
+  await wait(600);
   const base = file.name.replace(/\.[^.]+$/, "");
   return [
-    { id: "1", label: "Text 1", content: `${base}\nJurnal Computech & Bisnis, Vol 12, No 1, Juni 2018, 11–27\nISSN 2442-4943` },
-    { id: "2", label: "Text 2", content: `SISTEM REKOMENDASI LAPTOP MENGGUNAKAN COLLABORATIVE FILTERING DAN CONTENT-BASED FILTERING` },
-    { id: "3", label: "Text 3", content: `Anderias Eko Wijaya¹, Deni Alfian²\nProgram Studi Teknik Informatika, STMIK Subang\nEmail: ekowjy09@yahoo.com, denialfian92@yahoo.co.id` },
-    { id: "4", label: "Text 4", content: `Abstract — Laptop is needed for students and for office workers ... (contoh teks panjang)` },
-    { id: "5", label: "Text 5", content: `Keywords — recommender system, collaborative filtering, content-based filtering, ...` },
+    { id: "1", label: "Text 1", content: `${base}\nHeader / metadata contoh` },
+    { id: "2", label: "Text 2", content: `Judul besar dokumen yang terdeteksi` },
+    { id: "3", label: "Text 3", content: `Penulis, afiliasi, email` },
+    { id: "4", label: "Text 4", content: `Abstract panjang ...` },
   ];
 }
-
 async function mockExtract(file: File): Promise<Record<string, string>> {
-  await wait(900);
-  const name = file.name.replace(/\.[^.]+$/, "");
-  return {
-    title: `${name} — Extracted Title`,
-    authors: "Nama Penulis A; Penulis B",
-    email: "author@example.com",
-    abstract: "Ringkasan singkat hasil ekstraksi...",
-    keywords: "rekomendasi, collaborative filtering, content-based",
-    year: "2018",
-  };
+  await wait(700);
+  return { title: file.name, authors: "Penulis A; Penulis B", year: "2018", keywords: "contoh, demo" };
 }
 
-/** bikin objectURL dari File dan cleanup otomatis */
-function useObjectURL(file: File | null) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file) { setUrl(null); return; }
-    const u = URL.createObjectURL(file);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [file]);
-  return url;
-}
-
-/* ================= Component ================= */
-
+/* ========= Komponen ========= */
 export default function AssistantWorkspace() {
-  const { addQuery, addFromFiles } = useDocuments();
+  const { documents, addFromFiles, addQuery } = useDocuments();
 
-  // tabs
-  const [activeTab, setActiveTab] = useState<"parse" | "extract" | "chat">("parse");
+  // Tabs
+  const [tab, setTab] = useState<"parse" | "extract" | "chat">("parse");
 
-  // file
-  const [file, setFile] = useState<File | null>(null);
-  const fileUrl = useObjectURL(file); // untuk preview PDF/gambar
+  // Dokumen aktif (dipilih user)
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const currentDoc = useMemo(
+    () => documents.find((d) => d.id === currentId),
+    [documents, currentId]
+  );
 
-  // parse
+  // ObjectURL untuk preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (currentDoc?.file) {
+      const url = URL.createObjectURL(currentDoc.file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [currentDoc?.file]);
+
+  // Saat daftar dokumen berubah, auto pilih yang pertama jika belum ada pilihan
+  useEffect(() => {
+    if (!currentId && documents.length) setCurrentId(documents[0].id);
+  }, [documents, currentId]);
+
+  // Hasil Parse & Extract per dokumen
+  const [parsedById, setParsedById] = useState<Record<string, ParsedBlock[]>>({});
+  const [extractedById, setExtractedById] = useState<Record<string, Record<string, string>>>({});
+  const parsedBlocks = currentId ? parsedById[currentId] ?? [] : [];
+  const extracted = currentId ? extractedById[currentId] ?? {} : {};
+
+  // Expand state per block (per dokumen)
+  const [openBlocks, setOpenBlocks] = useState<Record<string, Record<string, boolean>>>({});
+  const blockOpen = (bid: string) => !!openBlocks[currentId ?? ""]?.[bid];
+
+  // Loading flags (untuk dokumen aktif saja)
   const [isParsing, setIsParsing] = useState(false);
-  const [blocks, setBlocks] = useState<ParsedBlock[]>([]);
-  const [open, setOpen] = useState<Record<string, boolean>>({}); // state expand/collapse
-
-  // extract
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extracted, setExtracted] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
 
-  // chat
+  // Chat
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
 
-  /* -------- Handlers -------- */
+  /* ===== Handlers ===== */
 
-  const handleUpload = (files: File[]) => {
-    const f = files[0];
-    if (!f) return;
-    setFile(f);
-    addFromFiles([f]);          // opsional: sinkron dgn dashboard
-    setBlocks([]);              // reset parse/extract
-    setExtracted({});
-    setOpen({});
+  const onUpload = (files: File[]) => {
+    if (!files.length) return;
+    addFromFiles(files); // masuk ke dashboard + disimpan lokal/server
+    setTab("parse");
   };
 
-  const handleRunParse = async () => {
-    if (!file) return alert("Pilih/unggah file dulu.");
+  const runParse = async () => {
+    if (!currentDoc?.file || !currentId) return alert("Pilih dokumen yang punya file.");
     setIsParsing(true);
     try {
-      const result = await mockParse(file);     // TODO: ganti API kamu
-      setBlocks(result);
-      // Buka semua blok by default agar “selengkap LandingAI”
-      const o: Record<string, boolean> = {};
-      result.forEach((b) => (o[b.id] = true));
-      setOpen(o);
-      setActiveTab("parse");
+      const blocks = await mockParse(currentDoc.file);
+      setParsedById((prev) => ({ ...prev, [currentId]: blocks }));
+      // buka semua block
+      setOpenBlocks((prev) => ({
+        ...prev,
+        [currentId]: blocks.reduce((acc, b) => ((acc[b.id] = true), acc), {} as Record<string, boolean>),
+      }));
+      setTab("parse");
     } finally {
       setIsParsing(false);
     }
   };
 
-  const handleRunExtract = async () => {
-    if (!file) return alert("Pilih/unggah file dulu.");
+  const runExtract = async () => {
+    if (!currentDoc?.file || !currentId) return alert("Pilih dokumen yang punya file.");
     setIsExtracting(true);
     try {
-      const data = await mockExtract(file);     // TODO: ganti API kamu
-      setExtracted(data);
-      setActiveTab("extract");
+      const data = await mockExtract(currentDoc.file);
+      setExtractedById((prev) => ({ ...prev, [currentId]: data }));
+      setTab("extract");
     } finally {
       setIsExtracting(false);
     }
   };
 
-  const handleSend = async () => {
+  const sendChat = async () => {
     const text = input.trim();
     if (!text) return;
     addQuery(text);
     const id = crypto.randomUUID?.() ?? `${Date.now()}`;
     setMsgs((m) => [...m, { id, role: "user", text }]);
     setInput("");
-    // TODO: sambungkan ke RAG/LLM
-    setMsgs((m) => [
-      ...m,
-      { id: `${id}-a`, role: "assistant", text: "👍 Terima kasih. Hubungkan ke endpoint RAG untuk jawaban asli." },
-    ]);
-    setActiveTab("chat");
-  };
-
-  const extractedRows = useMemo(
-    () => Object.entries(extracted).map(([field, value]) => ({ field, value })),
-    [extracted],
-  );
-
-  const copyJSON = async () => {
-    await navigator.clipboard.writeText(JSON.stringify(extracted, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    setMsgs((m) => [...m, { id: `${id}-a`, role: "assistant", text: "👍 Pesan diterima (hubungkan ke API RAG)." }]);
+    setTab("chat");
   };
 
   const Separator = () => <div className="w-full h-px bg-border" />;
@@ -156,80 +135,59 @@ export default function AssistantWorkspace() {
     <div className={`overflow-auto ${className}`}>{children}</div>
   );
 
-  /* -------- File previewer (PDF/image/text) -------- */
-
+  /* ===== Preview ===== */
   function PreviewPane() {
-    if (!file) {
-      return <div className="text-sm text-muted-foreground">Belum ada file. Unggah file terlebih dahulu.</div>;
-    }
-
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!currentDoc) return <div className="text-sm text-muted-foreground">Pilih dokumen terlebih dahulu.</div>;
+    const ext = (currentDoc.name.split(".").pop() || "").toLowerCase();
     const isPDF = ext === "pdf";
     const isImg = ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
-    const isTxt = ["txt", "md"].includes(ext);
 
-    if (isPDF && fileUrl) {
-      // Browser built-in PDF viewer → sudah bisa scroll/zoom
-      return (
-        <iframe
-          src={fileUrl}
-          title="pdf-preview"
-          className="w-full h-[60vh] rounded-lg border border-border"
-        />
-      );
+    if (isPDF && previewUrl) {
+      return <iframe src={previewUrl} className="w-full h-[60vh] rounded-lg border border-border" />;
     }
-
-    if (isImg && fileUrl) {
+    if (isImg && previewUrl) {
       return (
         <div className="w-full h-[60vh] rounded-lg border border-border flex items-center justify-center bg-muted/20">
-          <img src={fileUrl} alt="preview" className="max-h-full max-w-full object-contain" />
+          <img src={previewUrl} className="max-h-full max-w-full object-contain" />
         </div>
       );
     }
-
-    if (isTxt) {
-      return (
-        <ScrollBox className="h-[60vh] rounded-lg border border-border p-3 bg-background">
-          <pre className="text-sm whitespace-pre-wrap">
-            {`(Contoh) Render isi TXT/MD di sini menggunakan FileReader jika diperlukan.`}
-          </pre>
-        </ScrollBox>
-      );
-    }
-
     return (
       <div className="text-sm text-muted-foreground">
-        Format <b>.{ext}</b> belum didukung preview. Untuk dokumen Office (docx/xlsx/pptx) biasanya perlu konversi ke PDF lebih dulu.
+        Format <b>.{ext}</b> belum didukung preview langsung. (Saran: konversi ke PDF.)
       </div>
     );
   }
 
-  /* ================= Render ================= */
-
+  /* ===== UI ===== */
   return (
     <main className="flex-1 p-6 space-y-6 overflow-auto">
       <Card className="bg-card/70 glass soft-shadow hover-card h-[calc(100vh-9rem)] flex flex-col">
-        {/* Top bar */}
+        {/* Header */}
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
             <CardTitle>AI Assistant Workspace</CardTitle>
-            {file && <Badge variant="outline" className="ml-2">{file.name}</Badge>}
+
+            {/* dokumen aktif badge */}
+            {currentDoc && <Badge variant="outline" className="ml-2">{currentDoc.name}</Badge>}
           </div>
 
           <div className="flex items-center gap-2">
+            {/* multi-upload */}
             <FileUploadButton
-              onSelectFiles={(fs) => { handleUpload(fs); }}
-              label={file ? "Ganti File" : "Upload File"}
+              onSelectFiles={onUpload}
+              label="Tambah File"
               size="sm"
               variant="outline"
               className="gap-2"
+              multiple={true}
             />
-            <Button size="sm" className="gap-2" onClick={handleRunParse} disabled={!file || isParsing}>
+            <Button size="sm" className="gap-2" onClick={runParse} disabled={!currentDoc?.file || isParsing}>
               <Play className="h-4 w-4" />
               {isParsing ? "Parsing..." : "Run Parse"}
             </Button>
-            <Button size="sm" variant="secondary" className="gap-2" onClick={handleRunExtract} disabled={!file || isExtracting}>
+            <Button size="sm" variant="secondary" className="gap-2" onClick={runExtract} disabled={!currentDoc?.file || isExtracting}>
               <Play className="h-4 w-4" />
               {isExtracting ? "Extracting..." : "Run Extract"}
             </Button>
@@ -238,24 +196,47 @@ export default function AssistantWorkspace() {
 
         <Separator />
 
-        {/* Tab bar sederhana */}
-        <div className="px-6 pt-4">
+        {/* Bar Tabs + Selector Dokumen */}
+        <div className="px-6 pt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="inline-flex rounded-md bg-muted/30 p-1">
             {(["parse","extract","chat"] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setActiveTab(t)}
+                onClick={() => setTab(t)}
                 className={`px-3 py-1.5 text-sm rounded-md transition
-                ${activeTab === t ? "bg-background shadow font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                ${tab === t ? "bg-background shadow font-medium" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {t[0].toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
+
+          {/* daftar file ringkas */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground">Your Files:</span>
+            <div className="flex gap-2 flex-wrap">
+              {documents.length ? (
+                documents.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => setCurrentId(d.id)}
+                    className={`text-xs px-2 py-1 rounded border transition
+                      ${currentId === d.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted/40"}
+                    `}
+                    title={`${d.name} — ${d.status}`}
+                  >
+                    {d.name.length > 18 ? d.name.slice(0, 15) + "…" : d.name}
+                  </button>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">Belum ada file</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ========== PARSE ========== */}
-        {activeTab === "parse" && (
+        {tab === "parse" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 pt-4">
             {/* Preview kiri */}
             <Card className="bg-muted/10 lg:col-span-7">
@@ -265,14 +246,13 @@ export default function AssistantWorkspace() {
                   <CardTitle className="text-base">Preview</CardTitle>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={!file || !fileUrl}
+                  variant="ghost" size="sm"
+                  disabled={!currentDoc?.file || !previewUrl}
                   onClick={() => {
-                    if (!fileUrl) return;
+                    if (!previewUrl || !currentDoc) return;
                     const a = document.createElement("a");
-                    a.href = fileUrl;
-                    a.download = file?.name || "document";
+                    a.href = previewUrl;
+                    a.download = currentDoc.name;
                     a.click();
                   }}
                 >
@@ -292,49 +272,52 @@ export default function AssistantWorkspace() {
                 <div className="flex gap-2">
                   <Button
                     variant="ghost" size="sm"
-                    disabled={!blocks.length}
-                    onClick={() => {
-                      const all: Record<string, boolean> = {};
-                      blocks.forEach((b) => (all[b.id] = true));
-                      setOpen(all);
-                    }}
+                    disabled={!parsedBlocks.length || !currentId}
+                    onClick={() =>
+                      setOpenBlocks((prev) => ({
+                        ...prev,
+                        [currentId!]: parsedBlocks.reduce((acc, b) => ((acc[b.id] = true), acc), {} as Record<string, boolean>),
+                      }))
+                    }
                   >
                     Expand All
                   </Button>
                   <Button
                     variant="ghost" size="sm"
-                    disabled={!blocks.length}
-                    onClick={() => setOpen({})}
+                    disabled={!parsedBlocks.length || !currentId}
+                    onClick={() => setOpenBlocks((prev) => ({ ...prev, [currentId!]: {} }))}
                   >
                     Collapse All
                   </Button>
                 </div>
               </CardHeader>
-
               <CardContent>
-                <ScrollBox className="h-[60vh] pr-2">
-                  {blocks.length ? (
+                <div className="h-[60vh] overflow-auto pr-2">
+                  {parsedBlocks.length ? (
                     <div className="space-y-2">
-                      {blocks.map((b) => {
-                        const isOpen = !!open[b.id];
+                      {parsedBlocks.map((b) => {
+                        const isOpen = blockOpen(b.id);
                         return (
                           <div key={b.id} className="rounded-md border border-border/60">
                             <button
                               className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium"
-                              onClick={() => setOpen((prev) => ({ ...prev, [b.id]: !isOpen }))}
+                              onClick={() =>
+                                setOpenBlocks((prev) => ({
+                                  ...prev,
+                                  [currentId!]: { ...(prev[currentId!] ?? {}), [b.id]: !isOpen },
+                                }))
+                              }
                             >
                               <span>{b.label}</span>
                               {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                             </button>
                             {isOpen && (
                               <div className="px-3 pb-3">
-                                <pre className="whitespace-pre-wrap text-sm text-foreground">{b.content}</pre>
+                                <pre className="whitespace-pre-wrap text-sm">{b.content}</pre>
                                 <div className="pt-2">
                                   <Button
                                     variant="ghost" size="sm"
-                                    onClick={async () => {
-                                      await navigator.clipboard.writeText(b.content);
-                                    }}
+                                    onClick={async () => await navigator.clipboard.writeText(b.content)}
                                   >
                                     <Copy className="h-4 w-4 mr-1" /> Copy
                                   </Button>
@@ -347,17 +330,17 @@ export default function AssistantWorkspace() {
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      Belum ada hasil. Klik <b>Run Parse</b> untuk mem-parsing dokumen.
+                      Belum ada hasil. Pilih file lalu klik <b>Run Parse</b>.
                     </div>
                   )}
-                </ScrollBox>
+                </div>
               </CardContent>
             </Card>
           </div>
         )}
 
         {/* ========== EXTRACT ========== */}
-        {activeTab === "extract" && (
+        {tab === "extract" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 pt-4">
             <Card className="bg-muted/10 lg:col-span-7">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -372,20 +355,27 @@ export default function AssistantWorkspace() {
             <Card className="bg-muted/10 lg:col-span-5">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Extracted Data</CardTitle>
-                <Button variant="ghost" size="sm" onClick={copyJSON} disabled={!extractedRows.length}>
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(JSON.stringify(extracted, null, 2));
+                    setCopied(true); setTimeout(() => setCopied(false), 1200);
+                  }}
+                  disabled={!Object.keys(extracted).length}
+                >
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   {copied ? "Copied" : "Copy JSON"}
                 </Button>
               </CardHeader>
               <CardContent>
-                {extractedRows.length ? (
-                  <ScrollBox className="h-[60vh] pr-2">
+                {Object.keys(extracted).length ? (
+                  <div className="h-[60vh] overflow-auto pr-2">
                     <table className="w-full text-sm">
                       <tbody>
-                        {extractedRows.map((row) => (
-                          <tr key={row.field} className="border-b border-border/50">
-                            <td className="py-2 pr-2 font-medium whitespace-nowrap">{row.field}</td>
-                            <td className="py-2 text-muted-foreground">{row.value}</td>
+                        {Object.entries(extracted).map(([k, v]) => (
+                          <tr key={k} className="border-b border-border/50">
+                            <td className="py-2 pr-2 font-medium whitespace-nowrap">{k}</td>
+                            <td className="py-2 text-muted-foreground">{v}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -396,10 +386,10 @@ export default function AssistantWorkspace() {
                     <pre className="text-xs rounded-md bg-background border border-border/60 p-3 overflow-auto">
                       {JSON.stringify(extracted, null, 2)}
                     </pre>
-                  </ScrollBox>
+                  </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">
-                    Belum ada hasil. Klik <b>Run Extract</b>.
+                    Belum ada hasil. Pilih file lalu klik <b>Run Extract</b>.
                   </div>
                 )}
               </CardContent>
@@ -408,7 +398,7 @@ export default function AssistantWorkspace() {
         )}
 
         {/* ========== CHAT ========== */}
-        {activeTab === "chat" && (
+        {tab === "chat" && (
           <div className="p-6 pt-4 h-full flex flex-col">
             <Card className="bg-card/60 flex-1 flex flex-col">
               <CardContent className="pt-6 flex-1 overflow-auto space-y-4">
@@ -452,9 +442,9 @@ export default function AssistantWorkspace() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Tulis prompt kamu..."
                   className="min-h-[64px] resize-none flex-1"
-                  onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSend(); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendChat(); }}
                 />
-                <Button className="gap-2" onClick={handleSend}>
+                <Button className="gap-2" onClick={sendChat}>
                   <Send className="h-4 w-4" />
                   Send
                 </Button>

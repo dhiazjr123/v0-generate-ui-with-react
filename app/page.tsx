@@ -1,21 +1,19 @@
-// app/page.tsx
-"use client";
+// app/page.tsx  (SERVER COMPONENT)
+import { redirect } from "next/navigation";
+import HomeShell from "@/components/home-shell";
+import { createServerSupabase } from "@/lib/supabase/server";
 
-import { Header } from "@/components/header";
-import Sidebar from "@/components/sidebar";           // ⬅️ default import (tanpa kurung)
-import { MainContent } from "@/components/main-content";
-import { DocumentsProvider } from "@/components/documents-context";
+export default async function Page() {
+  try {
+    const supabase = createServerSupabase();
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) {
+      redirect("/login?next=/");
+    }
+  } catch {
+    // Kalau fetch Supabase time-out/ gagal, arahkan ke login daripada crash
+    redirect("/login?next=/");
+  }
 
-export default function HomePage() {
-  return (
-    <DocumentsProvider>
-      <div className="min-h-screen page-gradient">
-        <Header />
-        <div className="flex">
-          <Sidebar />
-          <MainContent />
-        </div>
-      </div>
-    </DocumentsProvider>
-  );
+  return <HomeShell />;
 }

@@ -1,19 +1,19 @@
-// app/assistant/page.tsx
+// components/home-shell.tsx
 "use client";
 
+import { DocumentsProvider } from "@/components/documents-context";
 import { Header } from "@/components/header";
 import Sidebar from "@/components/sidebar";
-import { DocumentsProvider } from "@/components/documents-context";
-import AssistantWorkspace from "@/components/assistant-workspace"; // ⬅️ default import
+import { MainContent } from "@/components/main-content";
 
-export default function AssistantPage() {
+export default function HomeShell() {
   return (
     <DocumentsProvider>
       <div className="min-h-screen page-gradient">
         <Header />
         <div className="flex">
           <Sidebar />
-          <AssistantWorkspace />
+          <MainContent />
         </div>
       </div>
     </DocumentsProvider>
