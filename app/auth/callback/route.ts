@@ -1,17 +1,19 @@
-// app/api/auth/callback/route.ts
+// app/auth/callback/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next") || "/";
 
-  // kalau tidak ada "code" → kembali ke login
+  // kalau tidak ada code, kembali ke login
   if (!code) return NextResponse.redirect(new URL("/login", req.url));
 
-  // siapkan cookie store (wajib untuk simpan session)
   const cookieStore = cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +33,7 @@ export async function GET(req: Request) {
     }
   );
 
-  // tukar "code" dari email/OAuth menjadi session + set cookies
+  // tukar code menjadi session + set cookie
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return NextResponse.redirect(
@@ -39,9 +41,5 @@ export async function GET(req: Request) {
     );
   }
 
-  // sukses → arahkan ke halaman tujuan
   return NextResponse.redirect(new URL(next, req.url));
 }
-
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";

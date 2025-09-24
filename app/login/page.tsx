@@ -14,12 +14,12 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false); // visual only (lihat catatan)
+  const [remember, setRemember] = useState(false); // visual only
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // kalau sudah login, redirect
+  // Jika sudah login → redirect
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
@@ -31,7 +31,7 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // paksa kosongkan field saat halaman mount (mengurangi efek autofill)
+  // Kosongkan field saat mount untuk mengurangi autofill
   useEffect(() => {
     setEmail("");
     setPassword("");
@@ -54,15 +54,24 @@ export default function LoginPage() {
   };
 
   const loginWithGoogle = async () => {
+    const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${location.origin}/auth/callback`, // penting
+        queryParams: {
+          // opsional agar selalu dapat refresh_token
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     });
   };
+  
 
   return (
     <main className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Kiri: placeholder / gambar (persis seperti sebelumnya) */}
+      {/* Kiri: placeholder */}
       <div className="hidden md:flex items-center justify-center bg-muted">
         <div className="w-[70%] aspect-[4/3] border-8 border-white/70 bg-gradient-to-br from-muted to-background rounded-lg flex items-center justify-center">
           <div className="w-[85%] h-[85%] border-4 border-white/70 rounded-md flex items-center justify-center">
@@ -72,15 +81,16 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Kanan: form (layout sama) */}
+      {/* Kanan: form */}
       <div className="flex items-center justify-center bg-gradient-to-b from-background to-muted/40 p-8">
         <div className="w-full max-w-md">
           <h1 className="text-3xl font-semibold text-center mb-8">Log In</h1>
 
           <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
-            {/* Dummy autofill trap fields (browser akan mengisi ke sini, bukan ke field nyata) */}
+            {/* autofill trap */}
             <input type="text" name="username" autoComplete="username" className="hidden" aria-hidden="true" tabIndex={-1} />
             <input type="password" name="password" autoComplete="current-password" className="hidden" aria-hidden="true" tabIndex={-1} />
+
             <div className="space-y-1">
               <label className="text-sm">Email</label>
               <input
@@ -129,10 +139,11 @@ export default function LoginPage() {
                   Remember me
                 </label>
 
+                {/* ⬇️ ganti alert → link ke halaman forgot-password */}
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
-                  onClick={() => alert("Forgot password (hubungkan ke supabase.auth.resetPasswordForEmail)")}
+                  onClick={() => router.push("/forgot-password")}
                 >
                   Forgot Password?
                 </button>
