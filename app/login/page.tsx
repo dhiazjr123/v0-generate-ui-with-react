@@ -31,6 +31,12 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // paksa kosongkan field saat halaman mount (mengurangi efek autofill)
+  useEffect(() => {
+    setEmail("");
+    setPassword("");
+  }, []);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
@@ -71,7 +77,10 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <h1 className="text-3xl font-semibold text-center mb-8">Log In</h1>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4" autoComplete="off">
+            {/* Dummy autofill trap fields (browser akan mengisi ke sini, bukan ke field nyata) */}
+            <input type="text" name="username" autoComplete="username" className="hidden" aria-hidden="true" tabIndex={-1} />
+            <input type="password" name="password" autoComplete="current-password" className="hidden" aria-hidden="true" tabIndex={-1} />
             <div className="space-y-1">
               <label className="text-sm">Email</label>
               <input
@@ -80,6 +89,8 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email"
+                name="login_email"
+                autoComplete="off"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
@@ -93,6 +104,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="password"
+                  name="login_password"
+                  autoComplete="off"
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 pr-10"
                 />
                 <button
