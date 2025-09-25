@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next") || "/";
+  const type = url.searchParams.get("type"); // email verification vs oauth
 
   // kalau tidak ada code, kembali ke login
   if (!code) return NextResponse.redirect(new URL("/login", req.url));
@@ -41,5 +42,14 @@ export async function GET(req: Request) {
     );
   }
 
+  // Jika ini email verification (type=signup), logout user dan arahkan ke login
+  if (type === "signup") {
+    await supabase.auth.signOut();
+    return NextResponse.redirect(
+      new URL(`/login?verified=true&next=${encodeURIComponent(next)}`, req.url)
+    );
+  }
+
+  // Untuk OAuth login, langsung arahkan ke halaman tujuan
   return NextResponse.redirect(new URL(next, req.url));
 }

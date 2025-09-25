@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,                      // <- langsung dianggap verified
+      email_confirm: false,                     // <- perlu verifikasi email
       user_metadata: { username, full_name: username, name: username },
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

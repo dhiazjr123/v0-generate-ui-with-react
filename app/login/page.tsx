@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Jika sudah login → redirect
   useEffect(() => {
@@ -35,7 +36,13 @@ export default function LoginPage() {
   useEffect(() => {
     setEmail("");
     setPassword("");
-  }, []);
+    
+    // Cek apakah ada parameter verified dari email verification
+    const verified = params.get("verified");
+    if (verified === "true") {
+      setSuccess("Email berhasil diverifikasi! Silakan login dengan email dan password Anda.");
+    }
+  }, [params]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +160,11 @@ export default function LoginPage() {
             {err && (
               <div className="text-sm text-red-500 border border-red-500/30 bg-red-500/10 rounded-md px-3 py-2">
                 {err}
+              </div>
+            )}
+            {success && (
+              <div className="text-sm text-emerald-500 border border-emerald-500/30 bg-emerald-500/10 rounded-md px-3 py-2">
+                {success}
               </div>
             )}
 
