@@ -41,7 +41,10 @@ export default function LoginPage() {
     const verified = params.get("verified");
     if (verified === "true") {
       setSuccess("Email berhasil diverifikasi! Silakan login dengan email dan password Anda.");
+      // Hilangkan notifikasi setelah 3 detik
+      setTimeout(() => setSuccess(null), 3000);
     }
+    
   }, [params]);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -55,6 +58,8 @@ export default function LoginPage() {
       router.refresh();
     } catch (e: any) {
       setErr(e.message || "Login gagal");
+      // Hilangkan notifikasi error setelah 3 detik
+      setTimeout(() => setErr(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -65,7 +70,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/auth/callback`, // penting
+        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         queryParams: {
           // opsional agar selalu dapat refresh_token
           access_type: "offline",

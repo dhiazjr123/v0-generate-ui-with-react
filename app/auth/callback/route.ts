@@ -50,6 +50,7 @@ export async function GET(req: Request) {
     );
   }
 
-  // Untuk OAuth login, langsung arahkan ke halaman tujuan
+  // Untuk semua OAuth (baik login maupun signup), langsung arahkan ke halaman tujuan
+  // Supabase akan otomatis membuat akun baru jika belum ada, atau login jika sudah ada
   return NextResponse.redirect(new URL(next, req.url));
 }

@@ -75,6 +75,8 @@ export default function RegisterPage() {
       setOk(
         "Akun berhasil dibuat. Silakan cek email untuk verifikasi sebelum login."
       );
+      // Hilangkan notifikasi setelah 3 detik
+      setTimeout(() => setOk(null), 3000);
 
       // Arahkan ke /login biar user langsung coba login setelah verifikasi
       setTimeout(() => {
@@ -82,6 +84,8 @@ export default function RegisterPage() {
       }, 1800);
     } catch (e: any) {
       setErr(e?.message || "Sign up gagal");
+      // Hilangkan notifikasi error setelah 3 detik
+      setTimeout(() => setErr(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -93,9 +97,7 @@ export default function RegisterPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(
-          next
-        )}`,
+        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
   };
