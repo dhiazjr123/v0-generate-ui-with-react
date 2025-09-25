@@ -10,14 +10,14 @@ import {
 } from "lucide-react";
 import { useDocuments } from "@/components/documents-context";
 import FileUploadButton from "@/components/file-upload-button";
+// (RAG disabled in this version)
 
 /* ========= Types ========= */
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type ParsedBlock = { id: string; label: string; content: string };
 
-/* ========= Utils / mocks (ganti ke API mu nanti) ========= */
+/* ========= Utils ========= */
 const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 async function mockParse(file: File): Promise<ParsedBlock[]> {
   await wait(600);
   const base = file.name.replace(/\.[^.]+$/, "");
@@ -29,7 +29,7 @@ async function mockParse(file: File): Promise<ParsedBlock[]> {
   ];
 }
 async function mockExtract(file: File): Promise<Record<string, string>> {
-  await wait(700);
+  await wait(400);
   return { title: file.name, authors: "Penulis A; Penulis B", year: "2018", keywords: "contoh, demo" };
 }
 

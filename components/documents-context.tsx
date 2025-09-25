@@ -2,6 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { deleteIndexForDocument } from "@/lib/ragLocal";
 
 /* ================== Types ================== */
 
@@ -218,6 +219,7 @@ export function DocumentsProvider({ children }: { children: React.ReactNode }) {
   const removeDocument = (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     idbDeleteFile(id).catch((e) => console.error("Gagal hapus file di IDB:", e));
+    deleteIndexForDocument(id).catch((e) => console.error("Gagal hapus index RAG:", e));
   };
 
   const addQuery = (text: string) => {

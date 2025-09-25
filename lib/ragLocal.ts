@@ -199,12 +199,17 @@ export async function buildIndexForDocument(docId: string, file: File, onProgres
   const { text, meta } = await parseFileToText(file);
 
   onProgress?.("chunk");
-  const chunks = chunkText(docId, text);
+  let chunks = chunkText(docId, text);
+  // Limit max chunks to avoid OOM/crash on large PDFs
+  const MAX_CHUNKS = 1200;
+  if (chunks.length > MAX_CHUNKS) {
+    chunks = chunks.slice(0, MAX_CHUNKS);
+  }
 
   onProgress?.("embed", { total: chunks.length });
   const embedder = await loadEmbedder();
   const embeddings: Float32Array[] = [];
-  const batchSize = 16;
+  const batchSize = 4; // smaller batches for stability in browsers
   for (let i = 0; i < chunks.length; i += batchSize) {
     const batchTexts = chunks.slice(i, i + batchSize).map((c) => c.text);
     const vecs = await embedder.embed(batchTexts);
@@ -334,6 +339,63 @@ export function buildAnswerFromChunks(query: string, retrieved: Retrieved[]): { 
   ].join("\n");
   const sources = retrieved.slice(0, 6).map((r) => ({ docId: r.chunk.docId, excerpt: r.chunk.text.slice(0, 240), range: [r.chunk.start, r.chunk.end] as [number, number] }));
   return { answer, sources };
+}
+
+/* ================= Utilities: read index & extract heuristics ================= */
+
+export async function listChunksForDocument(docId: string): Promise<Chunk[]> {
+  const db = await openDB();
+  const chunks: Chunk[] = [];
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_CHUNKS, "readonly");
+    const os = tx.objectStore(STORE_CHUNKS);
+    const req = os.openCursor();
+    req.onsuccess = (e: any) => {
+      const cursor: IDBCursorWithValue | null = e.target.result;
+      if (!cursor) return;
+      const ch = cursor.value as Chunk;
+      if (ch.docId === docId) chunks.push(ch);
+      cursor.continue();
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+  chunks.sort((a, b) => a.start - b.start);
+  return chunks;
+}
+
+export async function getMetaForDocument(docId: string): Promise<any | undefined> {
+  return dbGet<any>(STORE_META, docId);
+}
+
+export async function extractHeuristics(docId: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const meta = await getMetaForDocument(docId);
+  if (meta?.info) {
+    if (meta.info.Title) out.title = String(meta.info.Title);
+    if (meta.info.Author) out.authors = String(meta.info.Author);
+  }
+  const chunks = await listChunksForDocument(docId);
+  const headText = chunks.slice(0, 5).map((c) => c.text).join(" \n ");
+  const lines = headText.split(/\n|\r|\.\s+/).map((s) => s.trim()).filter(Boolean);
+
+  // Title detection
+  if (!out.title) {
+    const cand = lines.find((s) => /^title\s*[:\-]/i.test(s)) || lines.find((s) => s.length > 8 && s.length < 160);
+    if (cand) out.title = cand.replace(/^title\s*[:\-]\s*/i, "");
+  }
+  // Authors simple heuristic (look for ; or , with 2-5 tokens)
+  if (!out.authors) {
+    const cand = lines.find((s) => /(author|penulis)\s*[:\-]/i.test(s))
+      || lines.find((s) => /[A-Za-z]{2,}\s+[A-Za-z]{2,}(;|,)/.test(s));
+    if (cand) out.authors = cand.replace(/^(author|penulis)\s*[:\-]\s*/i, "");
+  }
+  // Year detection (2000-2099)
+  const yearMatch = headText.match(/\b(20\d{2})\b/);
+  if (yearMatch) out.year = yearMatch[1];
+
+  return out;
 }
 
 
